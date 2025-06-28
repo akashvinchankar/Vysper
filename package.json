@@ -9,6 +9,7 @@
     "test-speech": "node test-azure-speech.js",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
+    "build:mac-dev": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
     "build:all": "electron-builder --mac --win --linux",
@@ -64,24 +65,24 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64",
             "arm64"
           ]
         }
       ],
       "icon": "assets/icons/app-icon.icns",
       "darkModeSupport": true,
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "identity": null,
+      "signIgnore": [
+        ".*"
+      ]
     },
     "win": {
       "target": [
@@ -132,7 +133,8 @@
       "window": {
         "width": 600,
         "height": 400
-      }
+      },
+      "format": "ULFO"
     }
   }
 }

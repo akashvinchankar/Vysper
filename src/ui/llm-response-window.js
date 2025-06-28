@@ -145,6 +145,17 @@ class LLMResponseWindowUI {
         component: "LLMResponseWindowUI",
       });
     });
+
+    // Add close button event listener
+    const closeButton = document.getElementById("close-button");
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        logger.debug("Close button clicked", {
+          component: "LLMResponseWindowUI",
+        });
+        ipcRenderer.send("hide-llm-response");
+      });
+    }
   }
 
   setupKeyboardHandlers() {
@@ -446,6 +457,18 @@ class LLMResponseWindowUI {
   }
 
   handleKeyDown(e) {
+    // Handle Escape key to close the window (works in both interactive and non-interactive modes)
+    if (e.key === "Escape") {
+      e.preventDefault();
+      const { ipcRenderer } = require("electron");
+      ipcRenderer.send("hide-llm-response");
+      logger.debug("LLM response window closed via Escape key", {
+        component: "LLMResponseWindowUI",
+      });
+      return;
+    }
+
+    // Only handle other keys in interactive mode
     if (!this.isInteractive) return;
 
     const activeElement = document.activeElement;
@@ -864,11 +887,11 @@ class LLMResponseWindowUI {
 
 // Initialize when DOM is ready - Re-enabled for better error handling
 let llmResponseWindowUI;
-document.addEventListener('DOMContentLoaded', () => {
-    llmResponseWindowUI = new LLMResponseWindowUI();
-    
-    // Global access for debugging
-    window.llmResponseWindowUI = llmResponseWindowUI;
+document.addEventListener("DOMContentLoaded", () => {
+  llmResponseWindowUI = new LLMResponseWindowUI();
+
+  // Global access for debugging
+  window.llmResponseWindowUI = llmResponseWindowUI;
 });
 
 module.exports = LLMResponseWindowUI;

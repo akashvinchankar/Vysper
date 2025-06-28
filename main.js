@@ -1,6 +1,12 @@
 require("dotenv").config();
 
-const { app, BrowserWindow, globalShortcut, session, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  session,
+  ipcMain,
+} = require("electron");
 const logger = require("./src/core/logger").createServiceLogger("MAIN");
 const config = require("./src/core/config");
 
@@ -17,6 +23,7 @@ class ApplicationController {
   constructor() {
     this.isReady = false;
     this.activeSkill = "dsa";
+    this.codingLanguage = "javascript"; // Default to JavaScript
 
     // Window configurations for reference
     this.windowConfigs = {
@@ -74,6 +81,9 @@ class ApplicationController {
     try {
       this.setupPermissions();
 
+      // Load persisted settings before initializing windows
+      this.loadPersistedSettings();
+
       // Small delay to ensure desktop/space detection is accurate
       await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -88,6 +98,8 @@ class ApplicationController {
       logger.info("Application initialized successfully", {
         windowCount: Object.keys(windowManager.getWindowStats().windows).length,
         currentDesktop: "detected",
+        codingLanguage: this.codingLanguage,
+        activeSkill: this.activeSkill,
       });
 
       sessionManager.addEvent("Application started");
@@ -121,10 +133,11 @@ class ApplicationController {
       "CommandOrControl+,": () => windowManager.showSettings(),
       "Alt+A": () => windowManager.toggleInteraction(),
       "Alt+R": () => this.toggleSpeechRecognition(),
-      "CommandOrControl+Shift+T": () => windowManager.forceAlwaysOnTopForAllWindows(),
+      "CommandOrControl+Shift+T": () =>
+        windowManager.forceAlwaysOnTopForAllWindows(),
       "CommandOrControl+Shift+Alt+T": () => {
         const results = windowManager.testAlwaysOnTopForAllWindows();
-        logger.info('Always-on-top test triggered via shortcut', results);
+        logger.info("Always-on-top test triggered via shortcut", results);
       },
       // Context-sensitive shortcuts based on interaction mode
       "CommandOrControl+Up": () => this.handleUpArrow(),
@@ -152,16 +165,16 @@ class ApplicationController {
       });
     });
 
-    speechService.on("transcription", (text) => {      
+    speechService.on("transcription", (text) => {
       // Add transcription to session memory
-      sessionManager.addUserInput(text, 'speech');
-      
+      sessionManager.addUserInput(text, "speech");
+
       const windows = BrowserWindow.getAllWindows();
-      
+
       windows.forEach((window) => {
         window.webContents.send("transcription-received", { text });
       });
-      
+
       // Automatically process transcription with LLM for intelligent response
       setTimeout(async () => {
         try {
@@ -170,7 +183,7 @@ class ApplicationController {
         } catch (error) {
           logger.error("Failed to process transcription with LLM", {
             error: error.message,
-            text: text.substring(0, 100)
+            text: text.substring(0, 100),
           });
         }
       }, 500);
@@ -308,11 +321,18 @@ class ApplicationController {
       return { success: true, results };
     });
 
+    ipcMain.on("hide-llm-response", () => {
+      windowManager.hideLLMResponse();
+      logger.debug("LLM response window hidden via IPC");
+    });
+
     ipcMain.handle("send-chat-message", async (event, text) => {
       // Add chat message to session memory
-      sessionManager.addUserInput(text, 'chat');
-      logger.debug('Chat message added to session memory', { textLength: text.length });
-      
+      sessionManager.addUserInput(text, "chat");
+      logger.debug("Chat message added to session memory", {
+        textLength: text.length,
+      });
+
       // Process typed message with LLM in the same way as transcribed text
       setTimeout(async () => {
         try {
@@ -321,21 +341,24 @@ class ApplicationController {
         } catch (error) {
           logger.error("Failed to process chat message with LLM", {
             error: error.message,
-            text: text.substring(0, 100)
+            text: text.substring(0, 100),
           });
         }
       }, 500);
-      
+
       return { success: true };
     });
 
     ipcMain.handle("get-skill-prompt", (event, skillName) => {
       try {
-        const { promptLoader } = require('./prompt-loader');
+        const { promptLoader } = require("./prompt-loader");
         const skillPrompt = promptLoader.getSkillPrompt(skillName);
         return skillPrompt;
       } catch (error) {
-        logger.error('Failed to get skill prompt', { skillName, error: error.message });
+        logger.error("Failed to get skill prompt", {
+          skillName,
+          error: error.message,
+        });
         return null;
       }
     });
@@ -383,18 +406,18 @@ class ApplicationController {
       try {
         const connectivity = await llmService.checkNetworkConnectivity();
         const apiTest = await llmService.testConnection();
-        
+
         return {
           success: true,
           connectivity,
           apiTest,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
       } catch (error) {
         return {
           success: false,
           error: error.message,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
       }
     });
@@ -548,7 +571,11 @@ class ApplicationController {
     try {
       sessionManager.clear();
       windowManager.broadcastToAllWindows("session-cleared");
-      logger.info("Session memory cleared via global shortcut");
+      // Also hide the LLM response window when clearing session
+      windowManager.hideLLMResponse();
+      logger.info(
+        "Session memory cleared and LLM response hidden via global shortcut"
+      );
     } catch (error) {
       logger.error("Error clearing session memory:", error);
     }
@@ -604,10 +631,9 @@ class ApplicationController {
       "dsa",
       "system-design",
       "behavioral",
-      "data-science",
-      "sales",
-      "presentation",
-      "negotiation",
+      "reactjs",
+      "react-machine-coding",
+      "webdevelopment",
       "devops",
     ];
 
@@ -666,7 +692,7 @@ class ApplicationController {
       // Add OCR extracted text to session memory
       sessionManager.addOCREvent(ocrResult.text, {
         processingTime: ocrResult.metadata?.processingTime,
-        source: 'screenshot'
+        source: "screenshot",
       });
 
       this.broadcastOCRSuccess(ocrResult);
@@ -676,19 +702,20 @@ class ApplicationController {
     } catch (error) {
       logger.error("Screenshot OCR process failed", {
         error: error.message,
+        stack: error.stack,
         duration: Date.now() - startTime,
       });
 
       windowManager.hideLLMResponse();
-      this.broadcastOCRError(error.message);
-      
+      this.broadcastOCRError(`Screenshot OCR failed: ${error.message}`);
+
       sessionManager.addConversationEvent({
-        role: 'system',
+        role: "system",
         content: `Screenshot OCR failed: ${error.message}`,
-        action: 'ocr_error',
+        action: "ocr_error",
         metadata: {
-          error: error.message
-        }
+          error: error.message,
+        },
       });
     }
   }
@@ -696,12 +723,20 @@ class ApplicationController {
   async processWithLLM(text, sessionHistory) {
     try {
       // Add user input to session memory
-      sessionManager.addUserInput(text, 'llm_input');
+      sessionManager.addUserInput(text, "llm_input");
 
       // Check if current skill needs programming language context
-      const skillsRequiringProgrammingLanguage = ['programming', 'dsa', 'devops', 'system-design', 'data-science'];
-      const needsProgrammingLanguage = skillsRequiringProgrammingLanguage.includes(this.activeSkill);
-      
+      const skillsRequiringProgrammingLanguage = [
+        "programming",
+        "dsa",
+        "devops",
+        "system-design",
+        "reactjs",
+        "webdevelopment",
+      ];
+      const needsProgrammingLanguage =
+        skillsRequiringProgrammingLanguage.includes(this.activeSkill);
+
       const llmResult = await llmService.processTextWithSkill(
         text,
         this.activeSkill,
@@ -712,7 +747,9 @@ class ApplicationController {
       logger.info("LLM processing completed, showing response", {
         responseLength: llmResult.response.length,
         skill: this.activeSkill,
-        programmingLanguage: needsProgrammingLanguage ? this.codingLanguage : 'not applicable',
+        programmingLanguage: needsProgrammingLanguage
+          ? this.codingLanguage
+          : "not applicable",
         processingTime: llmResult.metadata.processingTime,
         responsePreview: llmResult.response.substring(0, 200) + "...",
       });
@@ -739,13 +776,13 @@ class ApplicationController {
 
       windowManager.hideLLMResponse();
       sessionManager.addConversationEvent({
-        role: 'system',
+        role: "system",
         content: `LLM processing failed: ${error.message}`,
-        action: 'llm_error',
+        action: "llm_error",
         metadata: {
           error: error.message,
-          skill: this.activeSkill
-        }
+          skill: this.activeSkill,
+        },
       });
 
       this.broadcastLLMError(error.message);
@@ -755,18 +792,21 @@ class ApplicationController {
   async processTranscriptionWithLLM(text, sessionHistory) {
     try {
       // Validate input text
-      if (!text || typeof text !== 'string' || text.trim().length === 0) {
-        logger.warn("Skipping LLM processing for empty or invalid transcription", {
-          textType: typeof text,
-          textLength: text ? text.length : 0
-        });
+      if (!text || typeof text !== "string" || text.trim().length === 0) {
+        logger.warn(
+          "Skipping LLM processing for empty or invalid transcription",
+          {
+            textType: typeof text,
+            textLength: text ? text.length : 0,
+          }
+        );
         return;
       }
 
       const cleanText = text.trim();
       if (cleanText.length < 2) {
         logger.debug("Skipping LLM processing for very short transcription", {
-          text: cleanText
+          text: cleanText,
         });
         return;
       }
@@ -774,26 +814,35 @@ class ApplicationController {
       logger.info("Processing transcription with intelligent LLM response", {
         skill: this.activeSkill,
         textLength: cleanText.length,
-        textPreview: cleanText.substring(0, 100) + "..."
+        textPreview: cleanText.substring(0, 100) + "...",
       });
 
       // Check if current skill needs programming language context
-      const skillsRequiringProgrammingLanguage = ['programming', 'dsa', 'devops', 'system-design', 'data-science'];
-      const needsProgrammingLanguage = skillsRequiringProgrammingLanguage.includes(this.activeSkill);
+      const skillsRequiringProgrammingLanguage = [
+        "programming",
+        "dsa",
+        "devops",
+        "system-design",
+        "reactjs",
+        "webdevelopment",
+      ];
+      const needsProgrammingLanguage =
+        skillsRequiringProgrammingLanguage.includes(this.activeSkill);
 
-      const llmResult = await llmService.processTranscriptionWithIntelligentResponse(
-        cleanText,
-        this.activeSkill,
-        sessionHistory.recent,
-        needsProgrammingLanguage ? this.codingLanguage : null
-      );
+      const llmResult =
+        await llmService.processTranscriptionWithIntelligentResponse(
+          cleanText,
+          this.activeSkill,
+          sessionHistory.recent,
+          needsProgrammingLanguage ? this.codingLanguage : null
+        );
 
       // Add LLM response to session memory
       sessionManager.addModelResponse(llmResult.response, {
         skill: this.activeSkill,
         processingTime: llmResult.metadata.processingTime,
         usedFallback: llmResult.metadata.usedFallback,
-        isTranscriptionResponse: true
+        isTranscriptionResponse: true,
       });
 
       // Send response to chat windows
@@ -802,50 +851,53 @@ class ApplicationController {
       logger.info("Transcription LLM response completed", {
         responseLength: llmResult.response.length,
         skill: this.activeSkill,
-        programmingLanguage: needsProgrammingLanguage ? this.codingLanguage : 'not applicable',
-        processingTime: llmResult.metadata.processingTime
+        programmingLanguage: needsProgrammingLanguage
+          ? this.codingLanguage
+          : "not applicable",
+        processingTime: llmResult.metadata.processingTime,
       });
-
     } catch (error) {
       logger.error("Transcription LLM processing failed", {
         error: error.message,
         errorStack: error.stack,
         skill: this.activeSkill,
-        text: text ? text.substring(0, 100) : 'undefined'
+        text: text ? text.substring(0, 100) : "undefined",
       });
 
       // Try to provide a fallback response
       try {
-        const fallbackResult = llmService.generateIntelligentFallbackResponse(text, this.activeSkill);
-        
+        const fallbackResult = llmService.generateIntelligentFallbackResponse(
+          text,
+          this.activeSkill
+        );
+
         sessionManager.addModelResponse(fallbackResult.response, {
           skill: this.activeSkill,
           processingTime: fallbackResult.metadata.processingTime,
           usedFallback: true,
           isTranscriptionResponse: true,
-          fallbackReason: error.message
+          fallbackReason: error.message,
         });
 
         this.broadcastTranscriptionLLMResponse(fallbackResult);
-        
+
         logger.info("Used fallback response for transcription", {
           skill: this.activeSkill,
-          fallbackResponse: fallbackResult.response
+          fallbackResponse: fallbackResult.response,
         });
-        
       } catch (fallbackError) {
         logger.error("Fallback response also failed", {
-          fallbackError: fallbackError.message
+          fallbackError: fallbackError.message,
         });
 
         sessionManager.addConversationEvent({
-          role: 'system',
+          role: "system",
           content: `Transcription LLM processing failed: ${error.message}`,
-          action: 'transcription_llm_error',
+          action: "transcription_llm_error",
           metadata: {
             error: error.message,
-            skill: this.activeSkill
-          }
+            skill: this.activeSkill,
+          },
         });
       }
     }
@@ -894,16 +946,19 @@ class ApplicationController {
       response: llmResult.response,
       metadata: llmResult.metadata,
       skill: this.activeSkill,
-      isTranscriptionResponse: true
+      isTranscriptionResponse: true,
     };
 
     logger.info("Broadcasting transcription LLM response to all windows", {
       responseLength: llmResult.response.length,
       skill: this.activeSkill,
-      responsePreview: llmResult.response.substring(0, 100) + "..."
+      responsePreview: llmResult.response.substring(0, 100) + "...",
     });
 
-    windowManager.broadcastToAllWindows("transcription-llm-response", broadcastData);
+    windowManager.broadcastToAllWindows(
+      "transcription-llm-response",
+      broadcastData
+    );
   }
 
   onWindowAllClosed() {
@@ -958,6 +1013,9 @@ class ApplicationController {
       // Update application settings
       if (settings.codingLanguage) {
         this.codingLanguage = settings.codingLanguage;
+        logger.info("Coding language updated", {
+          codingLanguage: this.codingLanguage,
+        });
       }
       if (settings.activeSkill) {
         this.activeSkill = settings.activeSkill;
@@ -965,6 +1023,7 @@ class ApplicationController {
         windowManager.broadcastToAllWindows("skill-updated", {
           skill: settings.activeSkill,
         });
+        logger.info("Active skill updated", { activeSkill: this.activeSkill });
       }
       if (settings.appIcon) {
         this.appIcon = settings.appIcon;
@@ -977,10 +1036,14 @@ class ApplicationController {
         this.updateAppIcon(settings.selectedIcon);
       }
 
-      // Persist settings to file or config
+      // Persist settings to file
       this.persistSettings(settings);
 
-      logger.info("Settings saved successfully", settings);
+      logger.info("Settings saved successfully", {
+        codingLanguage: this.codingLanguage,
+        activeSkill: this.activeSkill,
+        appIcon: this.appIcon,
+      });
       return { success: true };
     } catch (error) {
       logger.error("Failed to save settings", { error: error.message });
@@ -989,9 +1052,76 @@ class ApplicationController {
   }
 
   persistSettings(settings) {
-    // You can extend this to save to a file or database
-    // For now, we'll just keep them in memory
-    logger.debug("Settings persisted", settings);
+    try {
+      const path = require("path");
+      const fs = require("fs");
+      const os = require("os");
+
+      // Save settings to a JSON file in user's home directory
+      const settingsDir = path.join(os.homedir(), ".vysper");
+      const settingsFile = path.join(settingsDir, "settings.json");
+
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(settingsDir)) {
+        fs.mkdirSync(settingsDir, { recursive: true });
+      }
+
+      // Save current settings
+      const currentSettings = {
+        codingLanguage: this.codingLanguage,
+        activeSkill: this.activeSkill,
+        appIcon: this.appIcon,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      fs.writeFileSync(settingsFile, JSON.stringify(currentSettings, null, 2));
+      logger.debug("Settings persisted to file", {
+        settingsFile,
+        settings: currentSettings,
+      });
+    } catch (error) {
+      logger.warn("Failed to persist settings to file", {
+        error: error.message,
+      });
+    }
+  }
+
+  loadPersistedSettings() {
+    try {
+      const path = require("path");
+      const fs = require("fs");
+      const os = require("os");
+
+      const settingsFile = path.join(os.homedir(), ".vysper", "settings.json");
+
+      if (fs.existsSync(settingsFile)) {
+        const settingsData = fs.readFileSync(settingsFile, "utf8");
+        const settings = JSON.parse(settingsData);
+
+        // Apply loaded settings
+        if (settings.codingLanguage) {
+          this.codingLanguage = settings.codingLanguage;
+        }
+        if (settings.activeSkill) {
+          this.activeSkill = settings.activeSkill;
+        }
+        if (settings.appIcon) {
+          this.appIcon = settings.appIcon;
+        }
+
+        logger.info("Settings loaded from file", {
+          codingLanguage: this.codingLanguage,
+          activeSkill: this.activeSkill,
+          appIcon: this.appIcon,
+        });
+      } else {
+        logger.debug("No persisted settings file found, using defaults");
+      }
+    } catch (error) {
+      logger.warn("Failed to load persisted settings", {
+        error: error.message,
+      });
+    }
   }
 
   updateAppIcon(iconKey) {
