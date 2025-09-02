@@ -1,7 +1,14 @@
 <p align="center">
   <img src="https://github.com/user-attachments/assets/186d5458-7e8b-406a-9adc-ce755256298c" 
        alt="Group 14" 
-       width="300" 
+  | Shortcut          | Action                                           |
+| ----------------- | ------------------------------------------------ |
+| `Cmd + Shift + S` | Screenshot + AI Analysis                         |
+| `Alt/Option + R`  | Voice Recording Toggle (requires Azure key)     |
+| `Cmd + Shift + C` | Open Chat Window (type questions here)          |
+| `Cmd + Shift + \` | Show/Hide All Windows & Close Screenshot Popup  |
+| `Alt + A`         | Toggle Interactive Mode                          |
+| `Escape`          | Close Screenshot Popup (when popup is focused)  |dth="300" 
        style="padding: 10px; border-radius: 8px;"/>
 </p>
 
@@ -29,6 +36,7 @@ https://github.com/user-attachments/assets/c5616482-3652-4686-b87b-e04d06572d2f
 - **Behavioral** - STAR method responses and professional scenarios
 - **React.js** - Modern React development patterns and component architecture
 - **React Machine Coding** - Complete React applications from minimal requirements
+- **Frontend Interview Q&A** - Comprehensive answers to any frontend concept or question
 - **Web Development** - Full-stack web applications with React.js focus
 - **DevOps** - Infrastructure, CI/CD, and deployment strategies
 
@@ -193,16 +201,19 @@ GEMINI_API_KEY=your_gemini_api_key
 ### 🧠 Smart Content Detection
 
 **Automatic Task Recognition:**
+
 - **React Tasks**: "Todo App", "Accordion", "Modal", "Dashboard" → Complete React applications
-- **DSA Tasks**: "Two Sum", "Binary Tree", "Graph Traversal" → Full algorithm implementations  
+- **DSA Tasks**: "Two Sum", "Binary Tree", "Graph Traversal" → Full algorithm implementations
 - **Programming Tasks**: Incomplete functions, class stubs, TODO comments → Code completion
 
 **Intelligent Skill Switching:**
+
 - Automatically switches to the best skill based on detected content
 - High confidence detection (>80%) triggers skill changes
 - Maintains context across skill switches
 
 **Code Completion Intelligence:**
+
 - Detects incomplete functions, classes, and algorithms
 - Completes partial implementations with proper logic
 - Fixes syntax errors and adds missing imports
@@ -235,52 +246,39 @@ GEMINI_API_KEY=your_gemini_api_key
 
 ### For DSA & Programming
 
-1. **Task Recognition**: Screenshot algorithm names like "Two Sum", "Binary Tree", "Graph Traversal"  
+1. **Task Recognition**: Screenshot algorithm names like "Two Sum", "Binary Tree", "Graph Traversal"
 2. **Code Completion**: Capture incomplete functions, class stubs, or pseudocode
 3. **Smart Analysis**: Detects programming language and patterns automatically
 4. **Multiple Solutions**: Get both naive and optimized implementations
 5. **Auto-Skill Selection**: Switches between DSA and Programming skills intelligently
 6. **OCR Enhancement**: Cleans up screenshot artifacts and completes partial code
 
-### Behavioral Questions
+### 🚀 **Frontend Interview Mastery**
 
-1. **STAR Method**: Get structured response frameworks
-2. **Industry Examples**: Request relevant scenarios for your field
-3. **Follow-up Prep**: Prepare for common follow-up questions
+**Perfect for React Frontend Developers:**
 
-## Important Technical Requirements (MUST INSTALL Before Running)
+1. **Any Question, Anytime**: Screenshot or type ANY frontend question
+2. **Smart Detection**: Automatically switches to Frontend Q&A for explanation questions
+3. **Comprehensive Coverage**: React, JavaScript, CSS, performance, tools, architecture
+4. **No Voice Needed**: Use chat window or screenshots instead of voice commands
+5. **Random Questions**: Handles unexpected or minimal context questions perfectly
+6. **Real Explanations**: Get interview-quality explanations, not just code
 
-- **Node.js** 16+
-- **Tesseract OCR** (`brew install tesseract`)
-- **Audio Tool** (`brew install sox`)
-- **Azure Speech Services** (Free tier available)
-- **Google Gemini API** (Free quota included)
+**Sample Questions You Can Ask**:
 
-## 🚀 Advanced Usage
+- "Explain React reconciliation process"
+- "Difference between controlled and uncontrolled components"
+- "How does JavaScript event loop work"
+- "CSS specificity and cascade rules"
+- "Webpack vs Vite comparison"
+- "React performance optimization techniques"
+- "TypeScript generics in React"
+- "Accessibility best practices"
 
-### Session Memory
+**Workflow for Frontend Interviews**:
 
-The app remembers your interview context across multiple questions:
-
-## 🤝 Contributing
-
-**Contribute to make Vysper the ultimate interview companion, not a cheating tool!**
-
-### Priority Areas
-
-- **New Interview Skills** - Add specialized domains (Finance, Marketing, etc.)
-- **Language Support** - Expand beyond English for global users
-- **Platform Extensions** - Windows and Linux compatibility
-- **LLM Improvements** - Multiple LLM Model selections for the response
-- **UI/UX Improvements** - Enhanced interface and user experience
-
-### How to Contribute
-
-1. **Fork the repository**
-2. **Star the project** if you find it useful
-3. **Report issues** for bugs or feature requests
-4. **Submit pull requests** for improvements
-5. **Improve documentation** and add examples
-6. **Share your success stories**
-
-⭐ **Star this repo** if Vysper helped you ace your interviews or you vibed with it!
+1. Screenshot interview question → Auto-detects type
+2. Get comprehensive explanation with examples
+3. Follow-up with related questions
+4. Practice with coding challenges
+5. Verify answers and get additional insights

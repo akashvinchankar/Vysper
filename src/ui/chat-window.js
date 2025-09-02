@@ -310,6 +310,7 @@ try {
             behavioral: "💼",
             reactjs: "⚛️",
             "react-machine-coding": "🔨",
+            "frontend-interview": "💬",
             webdevelopment: "🌐",
             programming: "💻",
             devops: "🚀",

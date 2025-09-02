@@ -59,17 +59,20 @@ class LLMService {
 
     // Analyze content to determine best response strategy
     const contentAnalysis = this.analyzeContentIntent(text, activeSkill);
-    
+
     // Use suggested skill if confidence is high and different from current
     let finalSkill = activeSkill;
-    if (contentAnalysis.confidence > 0.8 && contentAnalysis.suggestedSkill !== activeSkill) {
+    if (
+      contentAnalysis.confidence > 0.8 &&
+      contentAnalysis.suggestedSkill !== activeSkill
+    ) {
       finalSkill = contentAnalysis.suggestedSkill;
       logger.info("Content analysis suggested skill change", {
         originalSkill: activeSkill,
         suggestedSkill: finalSkill,
         confidence: contentAnalysis.confidence,
         detectedType: contentAnalysis.type,
-        patterns: contentAnalysis.detectedPatterns
+        patterns: contentAnalysis.detectedPatterns,
       });
     }
 
@@ -89,7 +92,7 @@ class LLMService {
         programmingLanguage: programmingLanguage || "not specified",
         requestId: this.requestCount,
         contentType: contentAnalysis.type,
-        confidence: contentAnalysis.confidence
+        confidence: contentAnalysis.confidence,
       });
 
       const geminiRequest = this.buildGeminiRequest(
@@ -141,8 +144,8 @@ class LLMService {
           contentAnalysis: {
             type: contentAnalysis.type,
             confidence: contentAnalysis.confidence,
-            detectedPatterns: contentAnalysis.detectedPatterns
-          }
+            detectedPatterns: contentAnalysis.detectedPatterns,
+          },
         },
       };
     } catch (error) {
@@ -949,6 +952,22 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
         "app",
         "application",
       ],
+      "frontend-interview": [
+        "explain",
+        "what is",
+        "how does",
+        "difference between",
+        "why",
+        "when",
+        "interview",
+        "question",
+        "concept",
+        "theory",
+        "definition",
+        "advantages",
+        "disadvantages",
+        "compare",
+      ],
       webdevelopment: [
         "html",
         "css",
@@ -1187,56 +1206,151 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
    */
   analyzeContentIntent(text, currentSkill) {
     const analysis = {
-      type: 'unknown',
+      type: "unknown",
       confidence: 0,
-      enhancedContext: '',
+      enhancedContext: "",
       suggestedSkill: currentSkill,
-      detectedPatterns: []
+      detectedPatterns: [],
     };
 
     const lowerText = text.toLowerCase();
 
     // Task name patterns for different skills
     const taskPatterns = {
-      'react-machine-coding': [
-        'todo app', 'task manager', 'accordion', 'modal', 'popup', 'dropdown',
-        'carousel', 'slider', 'tabs', 'pagination', 'file upload', 'image gallery',
-        'search bar', 'table', 'data grid', 'chart', 'graph', 'dashboard',
-        'timeline', 'calendar', 'comments system', 'calculator', 'weather app',
-        'shopping cart', 'chat app', 'form builder', 'kanban board', 'music player',
-        'photo editor', 'nested folder structure', 'file manager', 'json viewer',
-        'text editor', 'code editor'
+      "react-machine-coding": [
+        "todo app",
+        "task manager",
+        "accordion",
+        "modal",
+        "popup",
+        "dropdown",
+        "carousel",
+        "slider",
+        "tabs",
+        "pagination",
+        "file upload",
+        "image gallery",
+        "search bar",
+        "table",
+        "data grid",
+        "chart",
+        "graph",
+        "dashboard",
+        "timeline",
+        "calendar",
+        "comments system",
+        "calculator",
+        "weather app",
+        "shopping cart",
+        "chat app",
+        "form builder",
+        "kanban board",
+        "music player",
+        "photo editor",
+        "nested folder structure",
+        "file manager",
+        "json viewer",
+        "text editor",
+        "code editor",
       ],
-      'dsa': [
-        'two sum', '3sum', 'maximum subarray', 'sliding window', 'merge intervals',
-        'binary tree traversal', 'lowest common ancestor', 'tree serialization',
-        'valid bst', 'tree diameter', 'graph traversal', 'shortest path',
-        'cycle detection', 'topological sort', 'connected components', 'fibonacci',
-        'climbing stairs', 'coin change', 'longest subsequence', 'knapsack',
-        'edit distance', 'merge sort', 'quick sort', 'binary search'
+      "frontend-interview": [
+        "explain",
+        "what is",
+        "how does",
+        "difference between",
+        "why",
+        "when",
+        "advantages of",
+        "disadvantages of",
+        "compare",
+        "vs",
+        "benefits",
+        "virtual dom",
+        "reconciliation",
+        "state management",
+        "props",
+        "hooks",
+        "lifecycle",
+        "context api",
+        "redux",
+        "css modules",
+        "styled components",
+        "webpack",
+        "babel",
+        "event loop",
+        "closure",
+        "hoisting",
+        "prototype",
+        "asynchronous",
+        "promise",
+        "async await",
+        "this binding",
+        "arrow function",
+        "flexbox",
+        "grid",
+        "responsive design",
+        "accessibility",
+        "performance",
+        "optimization",
+        "bundle",
+        "code splitting",
+        "lazy loading",
+        "memoization",
       ],
-      'programming': [
-        'implement', 'create function', 'write algorithm', 'build class',
-        'design pattern', 'api endpoint', 'database query', 'optimization'
-      ]
+      dsa: [
+        "two sum",
+        "3sum",
+        "maximum subarray",
+        "sliding window",
+        "merge intervals",
+        "binary tree traversal",
+        "lowest common ancestor",
+        "tree serialization",
+        "valid bst",
+        "tree diameter",
+        "graph traversal",
+        "shortest path",
+        "cycle detection",
+        "topological sort",
+        "connected components",
+        "fibonacci",
+        "climbing stairs",
+        "coin change",
+        "longest subsequence",
+        "knapsack",
+        "edit distance",
+        "merge sort",
+        "quick sort",
+        "binary search",
+      ],
+      programming: [
+        "implement",
+        "create function",
+        "write algorithm",
+        "build class",
+        "design pattern",
+        "api endpoint",
+        "database query",
+        "optimization",
+      ],
     };
 
     // Code completion patterns
     const codePatterns = [
-      /function\s+\w+\s*\([^)]*\)\s*\{?\s*$/,  // Incomplete function
-      /class\s+\w+\s*\{[^}]*$/,                // Incomplete class
-      /def\s+\w+\s*\([^)]*\):\s*$/,           // Python function stub
-      /const\s+\w+\s*=\s*\([^)]*\)\s*=>\s*$/,  // Arrow function stub
-      /\/\/\s*TODO/i,                          // TODO comments
-      /\/\*.*\*\//,                            // Block comments (potential pseudocode)
-      /\s+\.\.\.\s*$/,                         // Ellipsis indicating incomplete code
+      /function\s+\w+\s*\([^)]*\)\s*\{?\s*$/, // Incomplete function
+      /class\s+\w+\s*\{[^}]*$/, // Incomplete class
+      /def\s+\w+\s*\([^)]*\):\s*$/, // Python function stub
+      /const\s+\w+\s*=\s*\([^)]*\)\s*=>\s*$/, // Arrow function stub
+      /\/\/\s*TODO/i, // TODO comments
+      /\/\*.*\*\//, // Block comments (potential pseudocode)
+      /\s+\.\.\.\s*$/, // Ellipsis indicating incomplete code
     ];
 
     // Check for task name patterns
     for (const [skill, patterns] of Object.entries(taskPatterns)) {
       for (const pattern of patterns) {
         if (lowerText.includes(pattern)) {
-          analysis.type = 'task_implementation';
+          analysis.type = "task_implementation";
           analysis.confidence = Math.max(analysis.confidence, 0.8);
           analysis.suggestedSkill = skill;
           analysis.detectedPatterns.push(pattern);
@@ -1249,39 +1363,55 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     // Check for incomplete code patterns
     for (const pattern of codePatterns) {
       if (pattern.test(text)) {
-        analysis.type = 'code_completion';
+        analysis.type = "code_completion";
         analysis.confidence = Math.max(analysis.confidence, 0.9);
-        analysis.detectedPatterns.push('incomplete_code');
-        analysis.enhancedContext = 'Complete the incomplete code implementation.';
+        analysis.detectedPatterns.push("incomplete_code");
+        analysis.enhancedContext =
+          "Complete the incomplete code implementation.";
         break;
       }
     }
 
     // Check for specific programming language syntax
     const languagePatterns = {
-      javascript: [/import.*from/, /const.*=.*require/, /function.*\{/, /=>/, /console\.log/],
+      javascript: [
+        /import.*from/,
+        /const.*=.*require/,
+        /function.*\{/,
+        /=>/,
+        /console\.log/,
+      ],
       python: [/import.*/, /def.*:/, /class.*:/, /print\(/, /if.*:/],
-      java: [/public class/, /public static void/, /System\.out\./, /import java/],
+      java: [
+        /public class/,
+        /public static void/,
+        /System\.out\./,
+        /import java/,
+      ],
       cpp: [/#include/, /using namespace/, /int main\(/, /cout.*<</, /std::/],
-      react: [/import.*react/i, /usestate/i, /useeffect/i, /jsx/, /component/i]
+      react: [/import.*react/i, /usestate/i, /useeffect/i, /jsx/, /component/i],
     };
 
     for (const [lang, patterns] of Object.entries(languagePatterns)) {
-      if (patterns.some(pattern => pattern.test(lowerText))) {
+      if (patterns.some((pattern) => pattern.test(lowerText))) {
         analysis.detectedPatterns.push(`${lang}_syntax`);
-        if (lang === 'react' && !analysis.suggestedSkill.includes('react')) {
-          analysis.suggestedSkill = 'react-machine-coding';
+        if (lang === "react" && !analysis.suggestedSkill.includes("react")) {
+          analysis.suggestedSkill = "react-machine-coding";
         }
       }
     }
 
     // If no specific patterns detected but text looks like a question or request
-    if (analysis.type === 'unknown') {
-      if (lowerText.includes('how') || lowerText.includes('what') || lowerText.includes('?')) {
-        analysis.type = 'question';
+    if (analysis.type === "unknown") {
+      if (
+        lowerText.includes("how") ||
+        lowerText.includes("what") ||
+        lowerText.includes("?")
+      ) {
+        analysis.type = "question";
         analysis.confidence = 0.7;
       } else if (lowerText.length > 20) {
-        analysis.type = 'general_request';
+        analysis.type = "general_request";
         analysis.confidence = 0.6;
       }
     }

@@ -70,6 +70,24 @@ class ApplicationController {
     app.setName("Terminal ");
     process.title = "Terminal ";
 
+    // Apply dock visibility preference (macOS)
+    try {
+      if (
+        process.platform === "darwin" &&
+        app.dock &&
+        (config.get("stealth.hideFromDock") === true ||
+          this.hideDockIcon === true)
+      ) {
+        app.dock.hide();
+        this.hideDockIcon = true;
+        logger.info("Dock icon hidden on startup due to stealth settings");
+      }
+    } catch (e) {
+      logger.warn("Failed to apply dock visibility on startup", {
+        error: e.message,
+      });
+    }
+
     logger.info("Application starting", {
       version: config.get("app.version"),
       environment: config.get("app.isDevelopment")
@@ -463,6 +481,16 @@ class ApplicationController {
       app.exit();
     });
 
+    // Dock visibility controls (macOS)
+    ipcMain.handle("toggle-dock-visibility", (event, hide = null) => {
+      return this.toggleDockVisibility(hide);
+    });
+    ipcMain.handle("get-dock-visibility-status", () => {
+      return this.getDockVisibilityStatus();
+    });
+    ipcMain.handle("hide-dock-icon", () => this.toggleDockVisibility(true));
+    ipcMain.handle("show-dock-icon", () => this.toggleDockVisibility(false));
+
     ipcMain.handle("close-window", (event) => {
       const webContents = event.sender;
       const window = windowManager.windows.forEach((win, type) => {
@@ -633,6 +661,7 @@ class ApplicationController {
       "behavioral",
       "reactjs",
       "react-machine-coding",
+      "frontend-interview",
       "webdevelopment",
       "devops",
     ];
@@ -1005,7 +1034,63 @@ class ApplicationController {
       activeSkill: this.activeSkill || "dsa",
       appIcon: this.appIcon || "terminal",
       selectedIcon: this.appIcon || "terminal",
+      hideDockIcon:
+        process.platform === "darwin"
+          ? Boolean(this.hideDockIcon ?? config.get("stealth.hideFromDock"))
+          : false,
     };
+  }
+
+  // Toggle macOS dock visibility
+  toggleDockVisibility(hide = null) {
+    if (process.platform !== "darwin" || !app.dock) {
+      return { success: false, supported: false, platform: process.platform };
+    }
+
+    try {
+      const visible =
+        typeof app.dock.isVisible === "function"
+          ? app.dock.isVisible()
+          : !this.hideDockIcon;
+      const shouldHide = hide === null ? visible : !!hide;
+
+      if (shouldHide) {
+        app.dock.hide();
+        this.hideDockIcon = true;
+        config.set("stealth.hideFromDock", true);
+      } else {
+        app.dock.show();
+        this.hideDockIcon = false;
+        config.set("stealth.hideFromDock", false);
+      }
+
+      // Persist the preference
+      this.persistSettings({});
+
+      return { success: true, supported: true, hidden: this.hideDockIcon };
+    } catch (error) {
+      logger.error("toggleDockVisibility failed", { error: error.message });
+      return { success: false, supported: true, error: error.message };
+    }
+  }
+
+  getDockVisibilityStatus() {
+    if (process.platform !== "darwin") {
+      return { supported: false, platform: process.platform };
+    }
+    try {
+      const hidden =
+        app.dock && typeof app.dock.isVisible === "function"
+          ? !app.dock.isVisible()
+          : !!this.hideDockIcon;
+      return {
+        supported: true,
+        hidden,
+        configSetting: config.get("stealth.hideFromDock"),
+      };
+    } catch (error) {
+      return { supported: true, error: error.message };
+    }
   }
 
   saveSettings(settings) {
@@ -1036,6 +1121,11 @@ class ApplicationController {
         this.updateAppIcon(settings.selectedIcon);
       }
 
+      // Dock visibility preference (macOS)
+      if (Object.prototype.hasOwnProperty.call(settings, "hideDockIcon")) {
+        this.toggleDockVisibility(!!settings.hideDockIcon);
+      }
+
       // Persist settings to file
       this.persistSettings(settings);
 
@@ -1043,6 +1133,7 @@ class ApplicationController {
         codingLanguage: this.codingLanguage,
         activeSkill: this.activeSkill,
         appIcon: this.appIcon,
+        hideDockIcon: this.hideDockIcon,
       });
       return { success: true };
     } catch (error) {
@@ -1071,6 +1162,7 @@ class ApplicationController {
         codingLanguage: this.codingLanguage,
         activeSkill: this.activeSkill,
         appIcon: this.appIcon,
+        hideDockIcon: this.hideDockIcon === true,
         lastUpdated: new Date().toISOString(),
       };
 
@@ -1107,6 +1199,9 @@ class ApplicationController {
         }
         if (settings.appIcon) {
           this.appIcon = settings.appIcon;
+        }
+        if (Object.prototype.hasOwnProperty.call(settings, "hideDockIcon")) {
+          this.hideDockIcon = !!settings.hideDockIcon;
         }
 
         logger.info("Settings loaded from file", {

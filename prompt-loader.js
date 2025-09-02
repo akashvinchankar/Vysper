@@ -13,6 +13,7 @@ class PromptLoader {
       "system-design",
       "reactjs",
       "react-machine-coding",
+      "frontend-interview",
       "webdevelopment",
     ];
   }
@@ -146,6 +147,16 @@ All React machine coding solutions should be implemented in ${languageTitle}:
 - Event handling and user interactions in ${languageTitle}
 - Modern React patterns and hooks in ${languageTitle}
 - Focus on building complete, working applications`;
+        break;
+
+      case "frontend-interview":
+        languageInjection = `\n\n## PRIMARY LANGUAGE: ${languageUpper}
+All code examples and explanations should use ${languageTitle}:
+- React examples using ${languageTitle} syntax
+- JavaScript concepts explained with ${languageTitle}
+- Modern ${languageTitle} patterns and best practices
+- ${languageTitle}-specific interview questions and answers
+- Practical examples using ${languageTitle} ecosystem`;
         break;
 
       case "webdevelopment":
@@ -455,10 +466,14 @@ When providing technical examples or code-related advice, use ${languageTitle} a
       "machine-coding": "react-machine-coding",
       "react-mc": "react-machine-coding",
       "react-build": "react-machine-coding",
+      "frontend-interview": "frontend-interview",
+      frontend: "frontend-interview",
+      "fe-interview": "frontend-interview",
+      interview: "frontend-interview",
+      react: "reactjs",
       webdevelopment: "webdevelopment",
       "web-development": "webdevelopment",
       "web-dev": "webdevelopment",
-      frontend: "webdevelopment",
       programming: "programming",
       coding: "programming",
       "software-development": "programming",
