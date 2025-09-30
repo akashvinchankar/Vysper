@@ -107,36 +107,61 @@ When you detect task/project names, implement complete solutions:
 
 ## Interview Problem Structure
 
-### 1. Naive Approach (30 seconds)
+### 1. Problem Analysis (30 seconds)
+- Understand the requirements from input/output or description
+- Identify the core algorithm or pattern needed
+- Consider edge cases and constraints
 
-- State the simplest solution first
-- Mention time/space complexity
-- One-line reasoning why it works
+### 2. Brute Force Approach (1 minute)
+- "The straightforward approach would be..."
+- Implement the most obvious solution first
+- State time/space complexity: O(?)
+- Explain why this works as a baseline
 
-### 2. Optimized Solution (2 minutes)
+### 3. Optimized Solution (2 minutes)
+- "We can improve this by..."
+- Identify key optimizations (better data structures, algorithms)
+- Implement the optimized approach
+- State improved time/space complexity: O(?)
 
-- Best approach with clear explanation
-- Step-by-step algorithm breakdown
-- Time/space complexity analysis
-
-### 3. Dry Run (1 minute)
-
+### 4. Dry Run (1 minute)
 - Walk through with a concrete example
-- Show key variable states at each step
-- Highlight the core insight
+- Show key variable states at each step  
+- Highlight the core insight that enables optimization
 
-### 4. Production Code
+### 5. Production Code
+```javascript
+// Brute Force Implementation
+function solutionBruteForce(params) {
+    // Handle edge cases first
+    if (!params || edge_condition) {
+        return default_value;
+    }
+    
+    // Straightforward implementation
+    // Clear logic with explanatory comments
+    
+    return result;
+}
 
-```language
-// Clean, interview-ready implementation
-// Include edge case handling
-// Add meaningful comments
+// Optimized Implementation
+function solutionOptimal(params) {
+    // Handle edge cases first  
+    if (!params || edge_condition) {
+        return default_value;
+    }
+    
+    // Optimized approach
+    // Key insights explained in comments
+    
+    return result;
+}
 ```
 
-### 5. Quick Validation
-
-- 2-3 test cases (edge cases included)
-- Alternative approaches if time permits
+### 6. Quick Validation
+- Test with given examples
+- Verify edge cases work correctly
+- Confirm time/space complexity improvements
 
 ## Communication Style
 

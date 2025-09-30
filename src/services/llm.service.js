@@ -11,10 +11,11 @@ class LLMService {
     this.requestCount = 0;
     this.errorCount = 0;
 
+    // initializeClient may perform async model discovery; don't await here
     this.initializeClient();
   }
 
-  initializeClient() {
+  async initializeClient() {
     const apiKey = config.getApiKey("GEMINI");
 
     if (!apiKey || apiKey === "your-api-key-here") {
@@ -27,18 +28,98 @@ class LLMService {
 
     try {
       this.client = new GoogleGenerativeAI(apiKey);
-      this.model = this.client.getGenerativeModel({
-        model: config.get("llm.gemini.model"),
-      });
-      this.isInitialized = true;
 
-      logger.info("Gemini AI client initialized successfully", {
-        model: config.get("llm.gemini.model"),
-      });
+      // Try to use configured model first
+      const configuredModel = config.get("llm.gemini.model");
+      try {
+        this.model = this.client.getGenerativeModel({ model: configuredModel });
+        this.chosenModel = configuredModel;
+        this.isInitialized = true;
+        logger.info("Gemini AI client initialized successfully", {
+          model: this.chosenModel,
+        });
+        return;
+      } catch (modelErr) {
+        logger.warn("Configured Gemini model not available", {
+          configuredModel,
+          error: modelErr.message,
+        });
+      }
+
+      // Attempt to discover a supported model via ListModels (best-effort)
+      const discovered = await this.findSupportedModel(configuredModel);
+      if (discovered) {
+        try {
+          this.model = this.client.getGenerativeModel({ model: discovered });
+          this.chosenModel = discovered;
+          this.isInitialized = true;
+          logger.info("Gemini AI client initialized with discovered model", {
+            model: this.chosenModel,
+          });
+          return;
+        } catch (err) {
+          logger.error("Failed to initialize discovered model", {
+            discovered,
+            error: err.message,
+          });
+        }
+      }
+
+      logger.error("No supported Gemini model could be initialized");
     } catch (error) {
       logger.error("Failed to initialize Gemini client", {
         error: error.message,
       });
+    }
+  }
+
+  async findSupportedModel(preferredName) {
+    if (!this.client || typeof this.client.listModels !== "function") {
+      logger.warn("Client does not support listModels; cannot discover models");
+      return null;
+    }
+
+    try {
+      const listResult = await this.client.listModels();
+      // Normalize to array of model entries
+      const models = Array.isArray(listResult) ? listResult : listResult.models || [];
+
+      // Helper to inspect an entry for name and supported methods
+      const normalizeEntry = (entry) => {
+        return {
+          name: entry.name || entry.model || (typeof entry === 'string' ? entry : null),
+          methods: entry.supportedMethods || entry.methods || entry.supported || [],
+        };
+      };
+
+      // Prefer the exact preferredName if present
+      for (const m of models) {
+        const entry = normalizeEntry(m);
+        if (!entry.name) continue;
+        if (entry.name.includes(preferredName)) return entry.name;
+      }
+
+      // Otherwise find any model that advertises generateContent support
+      for (const m of models) {
+        const entry = normalizeEntry(m);
+        if (!entry.name) continue;
+        const methods = Array.isArray(entry.methods) ? entry.methods.map(String) : [];
+        if (methods.some((mm) => mm.toLowerCase().includes('generatecontent') || mm.toLowerCase().includes('generate'))) {
+          return entry.name;
+        }
+      }
+
+      // As a last resort, prefer any gemini or bison named model
+      for (const m of models) {
+        const entry = normalizeEntry(m);
+        if (!entry.name) continue;
+        if (/gemini|bison/i.test(entry.name)) return entry.name;
+      }
+
+      return null;
+    } catch (error) {
+      logger.warn("Failed to list or discover models", { error: error.message });
+      return null;
     }
   }
 
@@ -1119,11 +1200,12 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   async executeAlternativeRequest(geminiRequest) {
     const https = require("https");
     const apiKey = config.getApiKey("GEMINI");
-    const model = config.get("llm.gemini.model");
+    // Prefer any discovered/initialized model name; fallback to config
+    const model = this.chosenModel || config.get("llm.gemini.model");
 
     logger.info("Using alternative HTTPS request method");
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const postData = JSON.stringify(geminiRequest);
 
@@ -1148,6 +1230,16 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
         res.on("end", () => {
           try {
             if (res.statusCode !== 200) {
+              // Provide a clearer message for 404 model not found
+              if (res.statusCode === 404 && data && data.includes('models')) {
+                reject(
+                  new Error(
+                    `HTTP ${res.statusCode}: ${data} - This often means the model ${model} is not available for v1beta generateContent. Consider updating the model name or calling ListModels to discover supported models.`
+                  )
+                );
+                return;
+              }
+
               reject(new Error(`HTTP ${res.statusCode}: ${data}`));
               return;
             }
@@ -1214,6 +1306,118 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     };
 
     const lowerText = text.toLowerCase();
+
+    // DSA Input/Output Pattern Detection - GENERALIZED
+    const inputOutputPatterns = [
+      {
+        // Explicit Input/Output format
+        pattern: /input:\s*[\w\s=\[\],\-\d"']+.*?output:\s*[\w\s\[\],\-\d"']+/is,
+        problem: "explicit input/output problem",
+        skill: "dsa",
+        confidence: 0.95,
+        context: "This is a clear algorithm problem with explicit input/output format. I'll analyze the pattern and provide both brute force and optimal solutions."
+      },
+      {
+        // Array patterns without explicit labels - common interview formats
+        pattern: /(?:given|find|return).*array.*\[[\d,\s\-]+\]|array.*\[[\d,\s\-]+\].*(?:find|return|output)/is,
+        problem: "array algorithm",
+        skill: "dsa",
+        confidence: 0.9,
+        context: "This appears to be an array algorithm problem. I'll determine the required operation and implement both brute force and optimal solutions."
+      },
+      {
+        // String patterns without explicit labels
+        pattern: /(?:given|find|return).*string.*["'][^"']*["']|string.*["'][^"']*["'].*(?:find|return|output)/is,
+        problem: "string algorithm",
+        skill: "dsa",
+        confidence: 0.85,
+        context: "This looks like a string processing problem. I'll analyze the requirements and provide complete solutions."
+      },
+      {
+        // Number sequences or mathematical patterns
+        pattern: /\[[\d,\s\-]+\].*(?:sum|max|min|count|find)|(?:sum|max|min|count|find).*\[[\d,\s\-]+\]/is,
+        problem: "numerical algorithm",
+        skill: "dsa",
+        confidence: 0.85,
+        context: "This appears to be a numerical/mathematical algorithm problem. I'll analyze the pattern and implement solutions."
+      },
+      {
+        // Tree/Binary tree patterns
+        pattern: /tree|binary.tree|root.*node|node.*tree|traverse|inorder|preorder|postorder/is,
+        problem: "tree algorithm",
+        skill: "dsa",
+        confidence: 0.9,
+        context: "This is a tree-related algorithm problem. I'll implement the appropriate tree traversal or manipulation solution."
+      },
+      {
+        // Graph patterns
+        pattern: /graph|vertex|edge|node.*connect|path|shortest|cycle|dfs|bfs/is,
+        problem: "graph algorithm",
+        skill: "dsa",
+        confidence: 0.9,
+        context: "This is a graph algorithm problem. I'll implement the appropriate graph traversal or pathfinding solution."
+      },
+      {
+        // Sliding window patterns (without explicit input/output)
+        pattern: /sliding.window|subarray|substring|window.*size|maximum.*window|minimum.*window/is,
+        problem: "sliding window algorithm",
+        skill: "dsa",
+        confidence: 0.85,
+        context: "This appears to be a sliding window technique problem. I'll implement both brute force and optimal sliding window solutions."
+      },
+      {
+        // Two pointer patterns
+        pattern: /two.pointer|left.*right|start.*end|beginning.*end|palindrome|reverse/is,
+        problem: "two pointer algorithm",
+        skill: "dsa",
+        confidence: 0.8,
+        context: "This looks like a two-pointer technique problem. I'll implement solutions using the two-pointer approach."
+      },
+      {
+        // Dynamic Programming patterns
+        pattern: /dynamic.programming|dp|memoization|optimal.*way|minimum.*steps|maximum.*profit|fibonacci|climbing/is,
+        problem: "dynamic programming",
+        skill: "dsa",
+        confidence: 0.85,
+        context: "This is a dynamic programming problem. I'll provide both recursive and iterative solutions with memoization."
+      },
+      {
+        // Common algorithm keywords
+        pattern: /sort|search|merge|find.*pair|two.sum|three.sum|binary.search|quick.sort|merge.sort/is,
+        problem: "classical algorithm",
+        skill: "dsa",
+        confidence: 0.8,
+        context: "This is a classical algorithm problem. I'll implement the standard approach with optimizations."
+      },
+      {
+        // Mathematical/logical patterns with numbers
+        pattern: /\d+.*\d+.*(?:equal|sum|difference|product)|(?:even|odd).*number|prime.*number|factorial/is,
+        problem: "mathematical algorithm",
+        skill: "dsa",
+        confidence: 0.75,
+        context: "This appears to be a mathematical algorithm problem. I'll analyze the numerical pattern and provide solutions."
+      },
+      {
+        // Generic problem-solving patterns
+        pattern: /given.*find|given.*return|implement.*function|write.*algorithm|solve.*problem/is,
+        problem: "general algorithm",
+        skill: "dsa",
+        confidence: 0.7,
+        context: "This is an algorithm problem. I'll analyze the requirements and provide both brute force and optimal solutions."
+      }
+    ];
+
+    // Check for input/output patterns first (highest priority)
+    for (const {pattern, problem, skill, confidence, context} of inputOutputPatterns) {
+      if (pattern.test(text)) {
+        analysis.type = "leetcode_problem";
+        analysis.confidence = confidence;
+        analysis.suggestedSkill = skill;
+        analysis.detectedPatterns.push(`${problem}_pattern`);
+        analysis.enhancedContext = `${context}\n\nImplement the complete solution in JavaScript with optimal time complexity.`;
+        return analysis;
+      }
+    }
 
     // Task name patterns for different skills
     const taskPatterns = {
@@ -1302,6 +1506,7 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
         "3sum",
         "maximum subarray",
         "sliding window",
+        "sliding window maximum",
         "merge intervals",
         "binary tree traversal",
         "lowest common ancestor",

@@ -40,7 +40,9 @@ class ConfigManager {
 
       llm: {
         gemini: {
-          model: 'gemini-1.5-flash',
+          // Default model name. Model availability and supported methods may change
+          // — override with GEMINI_MODEL environment variable if needed.
+          model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
           maxRetries: 3,
           timeout: 30000,
           fallbackEnabled: true,
