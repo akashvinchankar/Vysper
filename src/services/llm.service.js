@@ -7,6 +7,9 @@ class LLMService {
   constructor() {
     this.client = null;
     this.model = null;
+    this.chosenModel = null; // string name of the model in use
+    this.lastUsedModel = null; // last model that produced a response
+    this._lastUsedFallback = false; // whether alternative method was used for last response
     this.isInitialized = false;
     this.requestCount = 0;
     this.errorCount = 0;
@@ -82,13 +85,19 @@ class LLMService {
     try {
       const listResult = await this.client.listModels();
       // Normalize to array of model entries
-      const models = Array.isArray(listResult) ? listResult : listResult.models || [];
+      const models = Array.isArray(listResult)
+        ? listResult
+        : listResult.models || [];
 
       // Helper to inspect an entry for name and supported methods
       const normalizeEntry = (entry) => {
         return {
-          name: entry.name || entry.model || (typeof entry === 'string' ? entry : null),
-          methods: entry.supportedMethods || entry.methods || entry.supported || [],
+          name:
+            entry.name ||
+            entry.model ||
+            (typeof entry === "string" ? entry : null),
+          methods:
+            entry.supportedMethods || entry.methods || entry.supported || [],
         };
       };
 
@@ -103,8 +112,16 @@ class LLMService {
       for (const m of models) {
         const entry = normalizeEntry(m);
         if (!entry.name) continue;
-        const methods = Array.isArray(entry.methods) ? entry.methods.map(String) : [];
-        if (methods.some((mm) => mm.toLowerCase().includes('generatecontent') || mm.toLowerCase().includes('generate'))) {
+        const methods = Array.isArray(entry.methods)
+          ? entry.methods.map(String)
+          : [];
+        if (
+          methods.some(
+            (mm) =>
+              mm.toLowerCase().includes("generatecontent") ||
+              mm.toLowerCase().includes("generate")
+          )
+        ) {
           return entry.name;
         }
       }
@@ -118,7 +135,9 @@ class LLMService {
 
       return null;
     } catch (error) {
-      logger.warn("Failed to list or discover models", { error: error.message });
+      logger.warn("Failed to list or discover models", {
+        error: error.message,
+      });
       return null;
     }
   }
@@ -183,23 +202,41 @@ class LLMService {
         programmingLanguage
       );
 
-      // Try standard method first
+      // Decide whether to use client library or REST fallback directly.
+      // In some Electron/undici environments certain 'flash' models repeatedly
+      // fail via the client library (fetch failed). For those we prefer the
+      // REST path which is more reliable here.
+      const configuredModel =
+        this.chosenModel || config.get("llm.gemini.model");
+      const prefersRest =
+        typeof configuredModel === "string" &&
+        /-flash\b/i.test(String(configuredModel));
+
       let response;
-      try {
-        response = await this.executeRequest(geminiRequest);
-      } catch (error) {
-        // If fetch failed, try alternative method
-        if (
-          error.message.includes("fetch failed") &&
-          config.get("llm.gemini.enableFallbackMethod")
-        ) {
-          logger.warn("Standard request failed, trying alternative method", {
-            error: error.message,
-            requestId: this.requestCount,
-          });
-          response = await this.executeAlternativeRequest(geminiRequest);
-        } else {
-          throw error;
+      if (prefersRest) {
+        logger.info("Preferred REST fallback for configured model", {
+          model: configuredModel,
+          requestId: this.requestCount,
+        });
+        response = await this.executeAlternativeRequest(geminiRequest);
+      } else {
+        // Try standard method first
+        try {
+          response = await this.executeRequest(geminiRequest);
+        } catch (error) {
+          // If fetch failed, try alternative method
+          if (
+            error.message.includes("fetch failed") &&
+            config.get("llm.gemini.enableFallbackMethod")
+          ) {
+            logger.warn("Standard request failed, trying alternative method", {
+              error: error.message,
+              requestId: this.requestCount,
+            });
+            response = await this.executeAlternativeRequest(geminiRequest);
+          } else {
+            throw error;
+          }
         }
       }
 
@@ -221,7 +258,12 @@ class LLMService {
           programmingLanguage,
           processingTime: Date.now() - startTime,
           requestId: this.requestCount,
-          usedFallback: false,
+          usedFallback: !!this._lastUsedFallback,
+          model:
+            this.lastUsedModel ||
+            this.chosenModel ||
+            config.get("llm.gemini.model") ||
+            "unknown",
           contentAnalysis: {
             type: contentAnalysis.type,
             confidence: contentAnalysis.confidence,
@@ -278,23 +320,38 @@ class LLMService {
         programmingLanguage
       );
 
-      // Try standard method first
+      // Decide whether to use client library or REST fallback directly.
+      const configuredModel =
+        this.chosenModel || config.get("llm.gemini.model");
+      const prefersRest =
+        typeof configuredModel === "string" &&
+        /-flash\b/i.test(String(configuredModel));
+
       let response;
-      try {
-        response = await this.executeRequest(geminiRequest);
-      } catch (error) {
-        // If fetch failed, try alternative method
-        if (
-          error.message.includes("fetch failed") &&
-          config.get("llm.gemini.enableFallbackMethod")
-        ) {
-          logger.warn("Standard request failed, trying alternative method", {
-            error: error.message,
-            requestId: this.requestCount,
-          });
-          response = await this.executeAlternativeRequest(geminiRequest);
-        } else {
-          throw error;
+      if (prefersRest) {
+        logger.info("Preferred REST fallback for configured model", {
+          model: configuredModel,
+          requestId: this.requestCount,
+        });
+        response = await this.executeAlternativeRequest(geminiRequest);
+      } else {
+        // Try standard method first
+        try {
+          response = await this.executeRequest(geminiRequest);
+        } catch (error) {
+          // If fetch failed, try alternative method
+          if (
+            error.message.includes("fetch failed") &&
+            config.get("llm.gemini.enableFallbackMethod")
+          ) {
+            logger.warn("Standard request failed, trying alternative method", {
+              error: error.message,
+              requestId: this.requestCount,
+            });
+            response = await this.executeAlternativeRequest(geminiRequest);
+          } else {
+            throw error;
+          }
         }
       }
 
@@ -313,7 +370,12 @@ class LLMService {
           programmingLanguage,
           processingTime: Date.now() - startTime,
           requestId: this.requestCount,
-          usedFallback: false,
+          usedFallback: !!this._lastUsedFallback,
+          model:
+            this.lastUsedModel ||
+            this.chosenModel ||
+            config.get("llm.gemini.model") ||
+            "unknown",
           isTranscriptionResponse: true,
         },
       };
@@ -718,6 +780,8 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        // Clear fallback flag for each new attempt
+        this._lastUsedFallback = false;
         // Pre-flight check
         await this.performPreflightCheck();
 
@@ -738,6 +802,33 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
         }
 
         const responseText = result.response.text();
+
+        // record model that produced this response if available
+        try {
+          // client model may expose a name property
+          this.lastUsedModel =
+            this.chosenModel ||
+            (this.model && (this.model.name || this.model.model)) ||
+            null;
+          // Persist the responding model as the runtime default so future
+          // requests will prefer it. This updates both the in-memory config
+          // and the environment variable used elsewhere in the app.
+          if (this.lastUsedModel) {
+            try {
+              config.set("llm.gemini.model", this.lastUsedModel);
+              process.env.GEMINI_MODEL = this.lastUsedModel;
+              // Also persist to .env on disk for permanence across restarts
+              try {
+                this.persistGeminiModelToDotenv(this.lastUsedModel);
+              } catch (e) {}
+            } catch (e) {
+              // Non-fatal: log and continue
+              logger.debug("Failed to persist responding model to config/env", {
+                error: e.message,
+              });
+            }
+          }
+        } catch {}
 
         if (!responseText || responseText.trim().length === 0) {
           throw new Error("Empty text content in Gemini response");
@@ -1180,6 +1271,36 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     logger.info("API key updated and client reinitialized");
   }
 
+  // Persist GEMINI_MODEL to the project's .env file so the chosen model
+  // survives restarts. This updates or appends a GEMINI_MODEL entry.
+  persistGeminiModelToDotenv(modelName) {
+    try {
+      const fs = require("fs");
+      const path = require("path");
+      const envPath = path.join(process.cwd(), ".env");
+      let content = "";
+      if (fs.existsSync(envPath)) {
+        content = fs.readFileSync(envPath, "utf8");
+      }
+
+      const line = `GEMINI_MODEL=${modelName}`;
+      const regex = /^GEMINI_MODEL=.*$/m;
+      if (regex.test(content)) {
+        content = content.replace(regex, line);
+      } else {
+        if (content && !content.endsWith("\n")) content += "\n";
+        content += `\n# Updated by LLMService: persisted responding model\n${line}\n`;
+      }
+
+      fs.writeFileSync(envPath, content, "utf8");
+      logger.info("Persisted GEMINI_MODEL to .env", { model: modelName });
+    } catch (e) {
+      logger.warn("Failed to persist GEMINI_MODEL to .env", {
+        error: e.message,
+      });
+    }
+  }
+
   getStats() {
     return {
       isInitialized: this.isInitialized,
@@ -1200,94 +1321,150 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
   async executeAlternativeRequest(geminiRequest) {
     const https = require("https");
     const apiKey = config.getApiKey("GEMINI");
-    // Prefer any discovered/initialized model name; fallback to config
-    const model = this.chosenModel || config.get("llm.gemini.model");
-
-    logger.info("Using alternative HTTPS request method");
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // Build candidate list: configured, chosen, preferred fallbacks
+    const configured = config.get("llm.gemini.model");
+    const candidates = [];
+    if (configured) candidates.push(configured);
+    if (this.chosenModel && !candidates.includes(this.chosenModel))
+      candidates.push(this.chosenModel);
+    // Preferred names to try if others fail (include gemini-2.0-flash per user's curl example)
+    ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"].forEach(
+      (m) => {
+        if (!candidates.includes(m)) candidates.push(m);
+      }
+    );
 
     const postData = JSON.stringify(geminiRequest);
+    const timeout = config.get("llm.gemini.timeout");
 
-    const options = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(postData),
-        "User-Agent": this.getUserAgent(),
-      },
-      timeout: config.get("llm.gemini.timeout"),
-    };
+    // Helper to try a single model id (restModel)
+    const tryModel = (restModel) => {
+      return new Promise((resolve, reject) => {
+        // Use header-based API key as in the user's example (X-goog-api-key)
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent`;
+        const options = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(postData),
+            "User-Agent": this.getUserAgent(),
+            // Prefer header auth to avoid exposing key in URL; fallback on query param if header missing
+            ...(apiKey ? { "X-goog-api-key": apiKey } : {}),
+          },
+          timeout,
+        };
 
-    return new Promise((resolve, reject) => {
-      const req = https.request(url, options, (res) => {
-        let data = "";
-
-        res.on("data", (chunk) => {
-          data += chunk;
-        });
-
-        res.on("end", () => {
-          try {
+        const req = https.request(url, options, (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
             if (res.statusCode !== 200) {
-              // Provide a clearer message for 404 model not found
-              if (res.statusCode === 404 && data && data.includes('models')) {
-                reject(
-                  new Error(
-                    `HTTP ${res.statusCode}: ${data} - This often means the model ${model} is not available for v1beta generateContent. Consider updating the model name or calling ListModels to discover supported models.`
-                  )
-                );
-                return;
+              return reject({
+                statusCode: res.statusCode,
+                body: data,
+                restModel,
+              });
+            }
+
+            try {
+              const response = JSON.parse(data);
+              if (
+                !response.candidates ||
+                !response.candidates[0] ||
+                !response.candidates[0].content
+              ) {
+                return reject({
+                  statusCode: res.statusCode,
+                  body: data,
+                  restModel,
+                  reason: "invalid_structure",
+                });
               }
 
-              reject(new Error(`HTTP ${res.statusCode}: ${data}`));
-              return;
+              const text = response.candidates[0].content.parts[0].text;
+              if (!text || text.trim().length === 0) {
+                return reject({
+                  statusCode: res.statusCode,
+                  body: data,
+                  restModel,
+                  reason: "empty_text",
+                });
+              }
+
+              return resolve({
+                text: text.trim(),
+                restModel,
+                statusCode: res.statusCode,
+              });
+            } catch (e) {
+              return reject({
+                statusCode: res.statusCode,
+                body: data,
+                restModel,
+                reason: "parse_error",
+                error: e,
+              });
             }
-
-            const response = JSON.parse(data);
-
-            if (
-              !response.candidates ||
-              !response.candidates[0] ||
-              !response.candidates[0].content
-            ) {
-              reject(new Error("Invalid response structure from Gemini API"));
-              return;
-            }
-
-            const text = response.candidates[0].content.parts[0].text;
-
-            if (!text || text.trim().length === 0) {
-              reject(new Error("Empty text content in Gemini response"));
-              return;
-            }
-
-            logger.info("Alternative request successful", {
-              responseLength: text.length,
-              statusCode: res.statusCode,
-            });
-
-            resolve(text.trim());
-          } catch (parseError) {
-            reject(
-              new Error(`Failed to parse response: ${parseError.message}`)
-            );
-          }
+          });
         });
-      });
 
-      req.on("error", (error) => {
-        reject(new Error(`Alternative request failed: ${error.message}`));
+        req.on("error", (err) => reject({ error: err, restModel }));
+        req.on("timeout", () => {
+          req.destroy();
+          reject({ error: new Error("timeout"), restModel });
+        });
+        req.write(postData);
+        req.end();
       });
+    };
 
-      req.on("timeout", () => {
-        req.destroy();
-        reject(new Error("Alternative request timeout"));
-      });
+    // Try candidates in sequence
+    this._lastUsedFallback = true; // mark that we're using fallback attempts
+    for (const candidate of candidates) {
+      const restModel = String(candidate || "")
+        .split("/")
+        .pop();
+      logger.info("Alternative request trying model", { restModel });
+      try {
+        const result = await tryModel(restModel);
+        logger.info("Alternative request successful", {
+          responseLength: result.text.length,
+          statusCode: result.statusCode,
+          model: restModel,
+        });
+        // record that alternative method returned successfully with this model
+        this.lastUsedModel = restModel;
+        try {
+          this.chosenModel = restModel;
+        } catch {}
+        // Persist the responding REST model as the runtime default
+        try {
+          config.set("llm.gemini.model", restModel);
+          process.env.GEMINI_MODEL = restModel;
+          try {
+            this.persistGeminiModelToDotenv(restModel);
+          } catch (e) {}
+        } catch (e) {
+          logger.debug(
+            "Failed to persist REST responding model to config/env",
+            { error: e.message }
+          );
+        }
+        this._lastUsedFallback = true;
+        return result.text;
+      } catch (err) {
+        logger.warn("Alternative request model attempt failed", {
+          candidate,
+          err,
+        });
+        // continue to next candidate
+        continue;
+      }
+    }
 
-      req.write(postData);
-      req.end();
-    });
+    // All alternatives failed
+    this._lastUsedFallback = false;
+    throw new Error("All alternative model attempts failed");
   }
 
   /**
@@ -1311,104 +1488,134 @@ Remember: Be intelligent about filtering - only provide detailed responses when 
     const inputOutputPatterns = [
       {
         // Explicit Input/Output format
-        pattern: /input:\s*[\w\s=\[\],\-\d"']+.*?output:\s*[\w\s\[\],\-\d"']+/is,
+        pattern:
+          /input:\s*[\w\s=\[\],\-\d"']+.*?output:\s*[\w\s\[\],\-\d"']+/is,
         problem: "explicit input/output problem",
         skill: "dsa",
         confidence: 0.95,
-        context: "This is a clear algorithm problem with explicit input/output format. I'll analyze the pattern and provide both brute force and optimal solutions."
+        context:
+          "This is a clear algorithm problem with explicit input/output format. I'll analyze the pattern and provide both brute force and optimal solutions.",
       },
       {
         // Array patterns without explicit labels - common interview formats
-        pattern: /(?:given|find|return).*array.*\[[\d,\s\-]+\]|array.*\[[\d,\s\-]+\].*(?:find|return|output)/is,
+        pattern:
+          /(?:given|find|return).*array.*\[[\d,\s\-]+\]|array.*\[[\d,\s\-]+\].*(?:find|return|output)/is,
         problem: "array algorithm",
         skill: "dsa",
         confidence: 0.9,
-        context: "This appears to be an array algorithm problem. I'll determine the required operation and implement both brute force and optimal solutions."
+        context:
+          "This appears to be an array algorithm problem. I'll determine the required operation and implement both brute force and optimal solutions.",
       },
       {
         // String patterns without explicit labels
-        pattern: /(?:given|find|return).*string.*["'][^"']*["']|string.*["'][^"']*["'].*(?:find|return|output)/is,
+        pattern:
+          /(?:given|find|return).*string.*["'][^"']*["']|string.*["'][^"']*["'].*(?:find|return|output)/is,
         problem: "string algorithm",
         skill: "dsa",
         confidence: 0.85,
-        context: "This looks like a string processing problem. I'll analyze the requirements and provide complete solutions."
+        context:
+          "This looks like a string processing problem. I'll analyze the requirements and provide complete solutions.",
       },
       {
         // Number sequences or mathematical patterns
-        pattern: /\[[\d,\s\-]+\].*(?:sum|max|min|count|find)|(?:sum|max|min|count|find).*\[[\d,\s\-]+\]/is,
+        pattern:
+          /\[[\d,\s\-]+\].*(?:sum|max|min|count|find)|(?:sum|max|min|count|find).*\[[\d,\s\-]+\]/is,
         problem: "numerical algorithm",
         skill: "dsa",
         confidence: 0.85,
-        context: "This appears to be a numerical/mathematical algorithm problem. I'll analyze the pattern and implement solutions."
+        context:
+          "This appears to be a numerical/mathematical algorithm problem. I'll analyze the pattern and implement solutions.",
       },
       {
         // Tree/Binary tree patterns
-        pattern: /tree|binary.tree|root.*node|node.*tree|traverse|inorder|preorder|postorder/is,
+        pattern:
+          /tree|binary.tree|root.*node|node.*tree|traverse|inorder|preorder|postorder/is,
         problem: "tree algorithm",
         skill: "dsa",
         confidence: 0.9,
-        context: "This is a tree-related algorithm problem. I'll implement the appropriate tree traversal or manipulation solution."
+        context:
+          "This is a tree-related algorithm problem. I'll implement the appropriate tree traversal or manipulation solution.",
       },
       {
         // Graph patterns
-        pattern: /graph|vertex|edge|node.*connect|path|shortest|cycle|dfs|bfs/is,
+        pattern:
+          /graph|vertex|edge|node.*connect|path|shortest|cycle|dfs|bfs/is,
         problem: "graph algorithm",
         skill: "dsa",
         confidence: 0.9,
-        context: "This is a graph algorithm problem. I'll implement the appropriate graph traversal or pathfinding solution."
+        context:
+          "This is a graph algorithm problem. I'll implement the appropriate graph traversal or pathfinding solution.",
       },
       {
         // Sliding window patterns (without explicit input/output)
-        pattern: /sliding.window|subarray|substring|window.*size|maximum.*window|minimum.*window/is,
+        pattern:
+          /sliding.window|subarray|substring|window.*size|maximum.*window|minimum.*window/is,
         problem: "sliding window algorithm",
         skill: "dsa",
         confidence: 0.85,
-        context: "This appears to be a sliding window technique problem. I'll implement both brute force and optimal sliding window solutions."
+        context:
+          "This appears to be a sliding window technique problem. I'll implement both brute force and optimal sliding window solutions.",
       },
       {
         // Two pointer patterns
-        pattern: /two.pointer|left.*right|start.*end|beginning.*end|palindrome|reverse/is,
+        pattern:
+          /two.pointer|left.*right|start.*end|beginning.*end|palindrome|reverse/is,
         problem: "two pointer algorithm",
         skill: "dsa",
         confidence: 0.8,
-        context: "This looks like a two-pointer technique problem. I'll implement solutions using the two-pointer approach."
+        context:
+          "This looks like a two-pointer technique problem. I'll implement solutions using the two-pointer approach.",
       },
       {
         // Dynamic Programming patterns
-        pattern: /dynamic.programming|dp|memoization|optimal.*way|minimum.*steps|maximum.*profit|fibonacci|climbing/is,
+        pattern:
+          /dynamic.programming|dp|memoization|optimal.*way|minimum.*steps|maximum.*profit|fibonacci|climbing/is,
         problem: "dynamic programming",
         skill: "dsa",
         confidence: 0.85,
-        context: "This is a dynamic programming problem. I'll provide both recursive and iterative solutions with memoization."
+        context:
+          "This is a dynamic programming problem. I'll provide both recursive and iterative solutions with memoization.",
       },
       {
         // Common algorithm keywords
-        pattern: /sort|search|merge|find.*pair|two.sum|three.sum|binary.search|quick.sort|merge.sort/is,
+        pattern:
+          /sort|search|merge|find.*pair|two.sum|three.sum|binary.search|quick.sort|merge.sort/is,
         problem: "classical algorithm",
         skill: "dsa",
         confidence: 0.8,
-        context: "This is a classical algorithm problem. I'll implement the standard approach with optimizations."
+        context:
+          "This is a classical algorithm problem. I'll implement the standard approach with optimizations.",
       },
       {
         // Mathematical/logical patterns with numbers
-        pattern: /\d+.*\d+.*(?:equal|sum|difference|product)|(?:even|odd).*number|prime.*number|factorial/is,
+        pattern:
+          /\d+.*\d+.*(?:equal|sum|difference|product)|(?:even|odd).*number|prime.*number|factorial/is,
         problem: "mathematical algorithm",
         skill: "dsa",
         confidence: 0.75,
-        context: "This appears to be a mathematical algorithm problem. I'll analyze the numerical pattern and provide solutions."
+        context:
+          "This appears to be a mathematical algorithm problem. I'll analyze the numerical pattern and provide solutions.",
       },
       {
         // Generic problem-solving patterns
-        pattern: /given.*find|given.*return|implement.*function|write.*algorithm|solve.*problem/is,
+        pattern:
+          /given.*find|given.*return|implement.*function|write.*algorithm|solve.*problem/is,
         problem: "general algorithm",
         skill: "dsa",
         confidence: 0.7,
-        context: "This is an algorithm problem. I'll analyze the requirements and provide both brute force and optimal solutions."
-      }
+        context:
+          "This is an algorithm problem. I'll analyze the requirements and provide both brute force and optimal solutions.",
+      },
     ];
 
     // Check for input/output patterns first (highest priority)
-    for (const {pattern, problem, skill, confidence, context} of inputOutputPatterns) {
+    for (const {
+      pattern,
+      problem,
+      skill,
+      confidence,
+      context,
+    } of inputOutputPatterns) {
       if (pattern.test(text)) {
         analysis.type = "leetcode_problem";
         analysis.confidence = confidence;
