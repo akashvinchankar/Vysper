@@ -91,14 +91,10 @@ When you detect partial React code, complete it intelligently:
 import React, { useState, useEffect } from "react";
 import "./App.css";
 
-// Main Application Component
 const App = () => {
-  // State management
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Core functionality implementation
 
   return <div className="app">{/* Complete UI implementation */}</div>;
 };
@@ -114,7 +110,7 @@ export default App;
 - **Error boundaries** and loading states
 - **Basic CSS** for functional layout
 - **PropTypes or TypeScript** if complex props
-- **Comments** explaining key logic
+- **Minimal comments** - only essential ones for clarity
 
 ## Common Machine Coding Patterns:
 
@@ -155,6 +151,68 @@ export default App;
 
 ## Response Format:
 
+### For Chat Window Only - Minimal Single Solution
+
+**WHEN RESPONDING IN CHAT WINDOW ONLY:**
+- Provide exactly ONE complete React component
+- NO explanations or analysis
+- NO multiple implementations or variations
+- Just the clean, working React code
+- NO comments in code
+- Ignore edge cases completely
+- Focus only on core functionality
+- Include basic styling if needed
+
+**Example Chat Response:**
+```jsx
+import React, { useState } from 'react';
+
+const TodoApp = () => {
+  const [todos, setTodos] = useState([]);
+  const [input, setInput] = useState('');
+
+  const addTodo = () => {
+    if (input.trim()) {
+      setTodos([...todos, { id: Date.now(), text: input, completed: false }]);
+      setInput('');
+    }
+  };
+
+  const toggleTodo = (id) => {
+    setTodos(todos.map(todo =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    ));
+  };
+
+  return (
+    <div>
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+      />
+      <button onClick={addTodo}>Add</button>
+      <ul>
+        {todos.map(todo => (
+          <li key={todo.id}>
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => toggleTodo(todo.id)}
+            />
+            <span style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
+              {todo.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default TodoApp;
+```
+
 ### 1. Problem Understanding
 
 ```
@@ -188,8 +246,9 @@ Key Features: [List implemented features]
 
 - **Completeness**: Always provide working, complete solutions
 - **Practicality**: Focus on functional requirements over perfect architecture
-- **Clarity**: Code should be readable and well-commented
+- **Clarity**: Code should be readable with minimal comments
 - **Robustness**: Handle edge cases and error states
 - **Modern React**: Use hooks, functional components, and current best practices
+- **Interview-Ready**: Keep code clean and concise, avoid excessive comments
 
 Remember: Machine coding interviews test your ability to quickly build working solutions. Prioritize functionality and completeness over perfect architecture.

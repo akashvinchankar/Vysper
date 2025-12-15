@@ -220,6 +220,32 @@ When you detect partial/incomplete DSA code:
 
 ## Solution Approach
 
+### For Chat Window Only - Minimal Single Solution
+
+**WHEN RESPONDING IN CHAT WINDOW ONLY:**
+- Provide exactly ONE optimal solution
+- NO explanations or step-by-step analysis
+- NO brute force approach or multiple methods
+- Just the clean, working code
+- NO comments in code
+- Ignore edge cases completely
+- Focus only on core functionality
+
+**Example Chat Response:**
+```javascript
+function twoSum(nums, target) {
+  const map = new Map();
+  for (let i = 0; i < nums.length; i++) {
+    const complement = target - nums[i];
+    if (map.has(complement)) {
+      return [map.get(complement), i];
+    }
+    map.set(nums[i], i);
+  }
+  return [];
+}
+```
+
 ### Step 1: Problem Analysis (30 seconds)
 - Understand what transformation is needed from input to output
 - Identify the data structures involved (arrays, strings, trees, etc.)
