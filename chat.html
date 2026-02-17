@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <title>Transcription</title>
     <link href="./src/styles/common.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <style>
       @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
 
@@ -41,7 +45,7 @@
         -webkit-app-region: drag;
         background: rgba(0, 0, 0, 0.05);
         backdrop-filter: blur(3px);
-        cursor: move;
+        cursor: default !important;
         flex-shrink: 0;
       }
       .header-title {
@@ -198,128 +202,77 @@
         overflow: visible !important;
       }
       
-      /* Markdown formatting for assistant messages */
-      .message.assistant .bullet-point {
-        margin: 4px 0;
-        padding-left: 8px;
-        line-height: 1.4;
-        word-wrap: break-word;
-        word-break: break-word;
-        overflow-wrap: break-word;
+      /* Code block styling - SEGREGATED AND DISTINCT */
+      .code-block {
+        background-color: rgba(0, 0, 0, 0.3) !important;
+        margin: 16px 0;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       }
-      
-      .message.assistant .numbered-point {
-        margin: 4px 0;
-        padding-left: 16px;
-        line-height: 1.4;
-        position: relative;
-        counter-increment: list-counter;
-        word-wrap: break-word;
-        word-break: break-word;
-        overflow-wrap: break-word;
-      }
-      
-      .message.assistant .numbered-point::before {
-        content: counter(list-counter) ". ";
-        position: absolute;
-        left: 0;
-        font-weight: 500;
-        color: rgba(156, 39, 176, 0.8);
-      }
-      
-      .message.assistant {
-        counter-reset: list-counter;
-      }
-      
-      .message.assistant strong {
-        font-weight: 600;
-        color: rgba(255, 255, 255, 1);
-      }
-      
-      .message.assistant em {
-        font-style: italic;
-        color: rgba(255, 255, 255, 0.9);
-      }
-      
-      .message.assistant code {
-        background: rgba(0, 0, 0, 0.15);
-        padding: 2px 4px;
-        border-radius: 3px;
-        font-family: 'Monaco', 'Menlo', monospace;
+      .code-header {
+        background-color: rgba(255, 255, 255, 0.05);
+        padding: 8px 12px;
+        font-family: "Courier New", monospace;
         font-size: 11px;
-        color: #64ffda;
-        display: inline;
+        color: #d1d5db;
+        font-weight: bold;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
-      
-      /* Ensure code blocks are fully visible and expandable */
-      .message.assistant pre {
-        background: rgba(0, 0, 0, 0.1);
-        padding: 12px 16px;
-        border-radius: 6px;
-        font-family: 'Monaco', 'Menlo', monospace;
-        font-size: 11px;
-        color: #64ffda;
+      .code-content {
+        padding: 0;
         overflow-x: auto;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin: 8px 0;
-        position: relative;
-        max-height: 300px;
-        overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: rgba(100, 255, 218, 0.3) rgba(0, 0, 0, 0.1);
+        background-color: transparent;
+      }
+      /* Override Prism pre/code styles */
+      .message.assistant pre {
+        background: transparent !important;
+        padding: 12px 16px !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        font-family: 'Monaco', 'Menlo', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre;
       }
       
       .message.assistant pre code {
-        background: transparent;
-        padding: 0;
-        border-radius: 0;
+        background: transparent !important;
+        padding: 0 !important;
+        color: inherit;
+        text-shadow: none !important;
       }
-      
-      /* Ensure lists are fully visible */
-      .message.assistant ul,
-      .message.assistant ol {
-        margin: 8px 0;
-        padding-left: 20px;
+
+      /* Inline code */
+      .message.assistant :not(pre) > code {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Monaco', 'Menlo', monospace;
+        font-size: 12px;
+        color: #e6e6e6;
       }
-      
-      .message.assistant li {
-        margin: 4px 0;
-        line-height: 1.4;
-      }
-      
-      /* Ensure headings are fully visible */
-      .message.assistant h1,
-      .message.assistant h2,
-      .message.assistant h3,
-      .message.assistant h4,
-      .message.assistant h5,
-      .message.assistant h6 {
-        margin: 12px 0 8px 0;
-        font-weight: 600;
-        color: rgba(255, 255, 255, 1);
-      }
-      
-      .message.assistant h1 { font-size: 16px; }
-      .message.assistant h2 { font-size: 15px; }
-      .message.assistant h3 { font-size: 14px; }
-      .message.assistant h4,
-      .message.assistant h5,
-      .message.assistant h6 { font-size: 13px; }
-      
-      /* Ensure paragraphs are fully visible */
-      .message.assistant p {
-        margin: 8px 0;
-      }
-      
-      /* Ensure blockquotes are fully visible */
-      .message.assistant blockquote {
-        border-left: 3px solid rgba(156, 39, 176, 0.5);
-        padding-left: 12px;
-        margin: 8px 0;
-        font-style: italic;
-        color: rgba(255, 255, 255, 0.8);
-      }
+
+      /* Markdown elements */
+      .message.assistant p { margin: 8px 0; }
+      .message.assistant ul, .message.assistant ol { margin: 8px 0; padding-left: 20px; }
+      .message.assistant li { margin: 4px 0; }
+      .message.assistant h1, .message.assistant h2, .message.assistant h3 { color: white; margin-top: 16px; margin-bottom: 8px; }
+
+      /* Override Prism colors for better visibility in chat */
+      .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #6a737d; }
+      .token.punctuation { color: #e1e4e8; }
+      .token.property, .token.tag, .token.boolean, .token.number, .token.constant, .token.symbol, .token.deleted { color: #79b8ff; }
+      .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin, .token.inserted { color: #85e89d; }
+      .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string { color: #f97583; }
+      .token.atrule, .token.attr-value, .token.keyword { color: #f97583; }
+      .token.function, .token.class-name { color: #b392f0; }
+      .token.regex, .token.important, .token.variable { color: #ffab70; }
       
       /* Thinking indicator animation */
       .thinking-dots {
@@ -416,7 +369,7 @@
         border-radius: 6px;
         padding: 6px 10px;
         color: rgba(255, 255, 255, 0.9);
-        cursor: pointer;
+        cursor: default !important;
         transition: all 0.2s;
         -webkit-app-region: no-drag;
       }
@@ -445,7 +398,7 @@
         border-radius: 6px;
         padding: 6px 10px;
         color: rgba(255, 255, 255, 0.9);
-        cursor: pointer;
+        cursor: default !important;
         transition: all 0.2s;
         -webkit-app-region: no-drag;
       }
@@ -621,6 +574,61 @@
         display: block;
       }
 
+      /* Header controls */
+      .header-controls {
+        display: flex;
+        align-items: center;
+        -webkit-app-region: no-drag;
+      }
+
+      .opacity-slider {
+        -webkit-appearance: none;
+        width: 80px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+        outline: none;
+      }
+
+      .opacity-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        cursor: default !important;
+        transition: background .15s ease-in-out;
+      }
+      
+      .opacity-slider::-webkit-slider-thumb:hover {
+        background: #fff;
+        transform: scale(1.1);
+      }
+
+      /* Resize Handle */
+      .resize-handle {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 15px;
+        height: 15px;
+        cursor: default !important;
+        z-index: 1001;
+        -webkit-app-region: no-drag; /* Critical for resizing to work */
+      }
+      
+      .resize-handle::after {
+        content: '';
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        width: 6px;
+        height: 6px;
+        border-right: 2px solid rgba(255, 255, 255, 0.5);
+        border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+      }
+
       @keyframes slideUpFade {
         from {
           opacity: 0;
@@ -640,6 +648,10 @@
           <i class="fas fa-microphone"></i>
           Live Transcription & Chat
           <div class="recording-indicator" id="recordingIndicator"></div>
+        </div>
+        <div class="header-controls">
+          <i class="fas fa-adjust" style="font-size: 12px; opacity: 0.7; margin-right: 5px;"></i>
+          <input type="range" id="opacitySlider" min="10" max="100" value="50" class="opacity-slider">
         </div>
       </div>
 
@@ -664,8 +676,11 @@
           </button>
         </div>
       </div>
+      
+      <!-- Visual Resize Handle -->
+      <div class="resize-handle"></div>
     </div>
-    <script src="lib/markdown.js"></script> 
+    
     <script>
       // Use electronAPI from preload script instead of direct require
       const whysperAPI = window.electronAPI;
@@ -684,6 +699,48 @@
       let isInteractive = true;
       let listeningStartTime = null;
       let listeningTimer = null;
+
+      // Configure marked with custom renderer for code blocks
+      const renderer = new marked.Renderer();
+      renderer.code = function(code, language) {
+        language = language || 'text';
+        const validLang = !!(language && Prism.languages[language]);
+        
+        // Use Prism to highlight if language is supported
+        let highlighted = code;
+        if (validLang) {
+          try {
+            highlighted = Prism.highlight(code, Prism.languages[language], language);
+          } catch (e) {
+            console.warn('Prism highlight failed:', e);
+            // Fallback to basic escaping
+            highlighted = code.replace(/[&<>"']/g, function(m) {
+              return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+          }
+        } else {
+             highlighted = code.replace(/[&<>"']/g, function(m) {
+              return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+        
+        return `
+          <div class="code-block">
+            <div class="code-header">
+              <span>${language.toUpperCase()}</span>
+            </div>
+            <div class="code-content">
+              <pre><code class="language-${language}">${highlighted}</code></pre>
+            </div>
+          </div>
+        `;
+      };
+
+      marked.setOptions({
+        renderer: renderer,
+        breaks: true,
+        gfm: true
+      });
 
       // Basic message function with markdown support for assistant messages
       function addMessage(text, type = 'user') {
@@ -704,7 +761,17 @@
         
         // Format assistant messages as markdown
         if (type === 'assistant') {
-          textDiv.innerHTML = formatMarkdown(text);
+          try {
+             if (typeof marked !== 'undefined') {
+                textDiv.innerHTML = marked.parse(text);
+             } else {
+                console.error("Marked library not loaded");
+                 textDiv.textContent = text;
+             }
+          } catch (e) {
+             console.error("Marked parsing error:", e);
+             textDiv.textContent = text;
+          }
         } else {
           textDiv.textContent = text;
         }
@@ -721,30 +788,6 @@
             behavior: 'smooth'
           });
         });
-      }
-
-      // Markdown formatter using markdown.js library
-      function formatMarkdown(text) {
-        if (!text) return '';
-        
-        try {
-          // Use the markdown.js library for proper markdown parsing
-          if (typeof markdown !== 'undefined' && markdown.toHTML) {
-            return markdown.toHTML(text);
-          } else {
-            console.warn('Markdown library not loaded, falling back to basic formatting');
-            // Fallback to basic formatting if library fails to load
-            return text
-              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-              .replace(/\*(.+?)\*/g, '<em>$1</em>')
-              .replace(/`(.+?)`/g, '<code>$1</code>')
-              .replace(/\n/g, '<br>');
-          }
-        } catch (error) {
-          console.error('Markdown parsing failed:', error);
-          // Fallback to basic HTML escaping
-          return text.replace(/\n/g, '<br>');
-        }
       }
 
       // Show thinking indicator
@@ -960,6 +1003,35 @@
           } catch (error) {
             addMessage("Error in recognizing speech", 'error');
           }
+        });
+      }
+      
+      // Opacity Slider Logic
+      const opacitySlider = document.getElementById('opacitySlider');
+      if (opacitySlider && chatContainer) {
+        // Set initial opacity
+        const initialOpacity = 0.5;
+        chatContainer.style.background = `linear-gradient(135deg, rgba(0, 0, 0, ${initialOpacity * 0.5}) 0%, rgba(20, 20, 20, ${initialOpacity * 0.8}) 100%)`;
+        
+        opacitySlider.addEventListener('input', (e) => {
+          const opacity = e.target.value / 100;
+          chatContainer.style.background = `linear-gradient(135deg, rgba(0, 0, 0, ${opacity * 0.5}) 0%, rgba(20, 20, 20, ${opacity * 0.8}) 100%)`;
+          chatContainer.style.backdropFilter = `blur(${5 * opacity}px)`;
+          chatContainer.style.boxShadow = `0 4px 25px rgba(0, 0, 0, ${0.3 * opacity})`;
+        });
+      }
+
+      // Resize Handle Logic
+      const resizeHandle = document.querySelector('.resize-handle');
+      if (resizeHandle) {
+        resizeHandle.addEventListener('mousedown', (e) => {
+           // Rely on CSS cursor for visual feedback
+           // Since we can't easily hook into native resize without deeper integration in this context,
+           // we'll rely on the user dragging the window edges which are resizable.
+           // However, for frameless windows, having a dedicated grip is nice.
+           // We can simulate it by listening to mousemove on document when handle is clicked.
+           e.preventDefault();
+           // Placeholder for future resize logic if native edge resizing is insufficient
         });
       }
 

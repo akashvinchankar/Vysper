@@ -155,13 +155,14 @@ export default App;
 
 **WHEN RESPONDING IN CHAT WINDOW ONLY:**
 - Provide exactly ONE complete React component
-- NO explanations or analysis
+- NO explanations or analysis unless explicitly asked
 - NO multiple implementations or variations
 - Just the clean, working React code
-- NO comments in code
-- Ignore edge cases completely
+- Minimal comments (only essential ones)
+- Ignore edge cases unless critical
 - Focus only on core functionality
 - Include basic styling if needed
+- ALWAYS use markdown code blocks with language specifiers (e.g. ```jsx) for proper visibility
 
 **Example Chat Response:**
 ```jsx

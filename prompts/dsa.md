@@ -224,12 +224,13 @@ When you detect partial/incomplete DSA code:
 
 **WHEN RESPONDING IN CHAT WINDOW ONLY:**
 - Provide exactly ONE optimal solution
-- NO explanations or step-by-step analysis
+- NO explanations or step-by-step analysis unless asked
 - NO brute force approach or multiple methods
 - Just the clean, working code
-- NO comments in code
-- Ignore edge cases completely
+- Minimal comments (only essential ones)
+- Ignore edge cases unless critical
 - Focus only on core functionality
+- ALWAYS use markdown code blocks with language specifiers (e.g. ```javascript) for proper visibility
 
 **Example Chat Response:**
 ```javascript
